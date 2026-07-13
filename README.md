@@ -28,18 +28,166 @@ directly on the host, install `ffmpeg` locally first or ensure `imageio-ffmpeg` 
 
 ## Run with Docker Compose
 
+This is the recommended way to run the project on a new machine. You only need Git and
+Docker Desktop, or Docker Engine with the Docker Compose plugin.
+
+### Option A: API only
+
+1. Clone the repository:
+
+```bash
+git clone git@github.com:jethromx/yt-clipper-api.git
+cd yt-clipper-api
+```
+
+If you do not use SSH with GitHub, clone with HTTPS instead:
+
+```bash
+git clone https://github.com/jethromx/yt-clipper-api.git
+cd yt-clipper-api
+```
+
+2. Create your local environment file:
+
 ```bash
 cp .env.example .env
+```
+
+3. Optional: choose where downloaded videos will be stored on the host machine:
+
+```dotenv
+DOWNLOADS_HOST_DIR=./downloads
+```
+
+For example, on macOS:
+
+```dotenv
+DOWNLOADS_HOST_DIR=/Users/you/Videos/yt-clipper
+```
+
+4. Start the API, worker, PostgreSQL, and Redis:
+
+```bash
 docker compose up --build
 ```
 
-Run Docker Compose from this `yt-clipper-api` directory. Running it from the parent
-workspace will not find the intended compose file.
+5. Open the API docs:
+
+```text
+http://localhost:8000/docs
+```
+
+Run Docker Compose from the `yt-clipper-api` directory. Running it from the parent workspace
+will not find the intended compose file.
 
 The API is available at `http://localhost:8000`, with OpenAPI docs at
 `http://localhost:8000/docs`. The API service runs `alembic upgrade head` on startup.
 
+Stop the stack with `Ctrl+C`. To remove containers and the PostgreSQL volume:
+
+```bash
+docker compose down -v
+```
+
+### Downloads folder
+
+Downloaded videos are stored inside the container at `STORAGE_DIR` and mounted to the host
+with `DOWNLOADS_HOST_DIR`.
+
+Default values:
+
+```dotenv
+STORAGE_DIR=/app/downloads
+DOWNLOADS_HOST_DIR=./downloads
+```
+
+To store videos somewhere else on the host, update `.env` before starting Compose:
+
+```dotenv
+DOWNLOADS_HOST_DIR=/Users/you/Videos/yt-clipper
+```
+
+### Full stack with the React frontend
+
+If `yt-clipper-api` and `yt-clipper-studio` are cloned as sibling folders, this project can
+orchestrate the complete stack:
+
+1. Clone both repositories in the same parent folder:
+
+```bash
+mkdir yt-clipper
+cd yt-clipper
+git clone git@github.com:jethromx/yt-clipper-api.git
+git clone git@github.com:jethromx/yt-clipper-studio.git
+```
+
+If you do not use SSH with GitHub, clone with HTTPS instead:
+
+```bash
+mkdir yt-clipper
+cd yt-clipper
+git clone https://github.com/jethromx/yt-clipper-api.git
+git clone https://github.com/jethromx/yt-clipper-studio.git
+```
+
+2. Create the backend `.env` file:
+
+```bash
+cd yt-clipper-api
+cp .env.example .env
+```
+
+3. Review these values in `.env`:
+
+```dotenv
+API_KEYS=dev-secret-change-me
+FRONTEND_API_KEY=dev-secret-change-me
+PUBLIC_API_BASE_URL=http://localhost:8000
+FRONTEND_PORT=8080
+DOWNLOADS_HOST_DIR=./downloads
+```
+
+`FRONTEND_API_KEY` must match one of the values in `API_KEYS`.
+
+4. Start the complete stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.full.yml up --build
+```
+
+Services exposed by default:
+
+- API: `http://localhost:8000`
+- Frontend: `http://localhost:8080`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+
+5. Open the frontend:
+
+```text
+http://localhost:8080
+```
+
+Useful `.env` parameters:
+
+```dotenv
+ENV_FILE=.env
+API_KEYS=dev-secret-change-me
+API_PORT=8000
+FRONTEND_PORT=8080
+PUBLIC_API_BASE_URL=http://localhost:8000
+FRONTEND_API_KEY=dev-secret-change-me
+DOWNLOADS_HOST_DIR=./downloads
+```
+
+`PUBLIC_API_BASE_URL` must be reachable from the user's browser, not only from inside Docker.
+For local use, `http://localhost:8000` is usually correct.
+If you change `POSTGRES_USER`, `POSTGRES_PASSWORD`, or `POSTGRES_DB`, update `DATABASE_URL`
+with the same values.
+
 ## API examples
+
+These examples assume the default API key from `.env.example`.
 
 Create a full-video download:
 
@@ -105,3 +253,11 @@ you are otherwise allowed to download. The service does not bypass DRM or access
 The `yt-dlp` adapter uses browser-like headers, retries, and alternate YouTube clients to
 reduce transient `403 Forbidden` failures. Some videos may still require cookies, login,
 age verification, regional access, or may be blocked by YouTube rate limits.
+
+## Troubleshooting
+
+- `docker compose` fails from the parent folder: run the command from `yt-clipper-api`.
+- Ports already in use: change `API_PORT`, `POSTGRES_PORT`, `REDIS_PORT`, or `FRONTEND_PORT` in `.env`.
+- Frontend receives `Invalid or missing API key`: make `FRONTEND_API_KEY` match `API_KEYS` and restart Compose.
+- Videos are not where expected: check `DOWNLOADS_HOST_DIR`; that host folder is mounted into `STORAGE_DIR` in the containers.
+- Persistent YouTube `403 Forbidden`: try another video first. Some videos require cookies, login, age verification, or regional access.
