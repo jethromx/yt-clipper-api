@@ -1,0 +1,57 @@
+services:
+  api:
+    build: .
+    command: sh -c "alembic upgrade head && uvicorn yt_clipper.main:create_app --factory --host 0.0.0.0 --port 8000 --reload"
+    env_file: .env.example
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./downloads:/app/downloads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: celery -A yt_clipper.worker.celery_app worker --loglevel=info
+    env_file: .env.example
+    volumes:
+      - ./src:/app/src
+      - ./downloads:/app/downloads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ytclipper
+      POSTGRES_USER: ytclipper
+      POSTGRES_PASSWORD: ytclipper
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ytclipper -d ytclipper"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
