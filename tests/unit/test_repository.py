@@ -45,6 +45,23 @@ def test_repository_update_inserts_missing_job() -> None:
         assert repository.get(job.id) is not None
 
 
+def test_repository_delete_removes_job() -> None:
+    from uuid import uuid4
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        repo = SqlAlchemyDownloadJobRepository(session)
+        job = DownloadJob(source_url="https://youtu.be/abc")
+        repo.add(job)
+
+        repo.delete(job.id)
+
+        assert repo.get(job.id) is None
+        # deleting a non-existent id must not raise
+        repo.delete(uuid4())
+
+
 def test_repository_round_trips_metadata_and_tiktok() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)

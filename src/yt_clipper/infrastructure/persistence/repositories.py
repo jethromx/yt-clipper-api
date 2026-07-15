@@ -31,6 +31,13 @@ class SqlAlchemyDownloadJobRepository:
         self.session.commit()
         return job
 
+    def delete(self, job_id: UUID) -> None:
+        record = self.session.get(DownloadJobRecord, str(job_id))
+        if record is None:
+            return
+        self.session.delete(record)
+        self.session.commit()
+
     @staticmethod
     def _to_record(job: DownloadJob) -> DownloadJobRecord:
         record = DownloadJobRecord()
