@@ -15,3 +15,14 @@ def test_settings_expose_anthropic_defaults() -> None:
 
     assert settings.anthropic_api_key is None
     assert settings.anthropic_model == "claude-haiku-4-5"
+
+
+def test_settings_expose_allowed_models() -> None:
+    from yt_clipper.config import Settings
+
+    settings = Settings()
+
+    assert settings.anthropic_model in settings.anthropic_allowed_models
+    assert "claude-haiku-4-5" in settings.anthropic_allowed_models
+    assert "claude-sonnet-5" in settings.anthropic_allowed_models
+    assert "claude-opus-4-8" in settings.anthropic_allowed_models
