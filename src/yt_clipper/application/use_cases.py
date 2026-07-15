@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 from yt_clipper.application.ports import (
+    CaptionGenerator,
     DownloadJobRepository,
     FileStorage,
     JobQueue,
@@ -14,12 +15,20 @@ from yt_clipper.application.ports import (
 )
 from yt_clipper.domain.exceptions import (
     BatchTooLargeError,
+    CaptionNotAvailableError,
     DomainError,
     EmptyBatchError,
     EmptySearchQueryError,
     InvalidClipRangeError,
 )
-from yt_clipper.domain.video import ClipRange, DownloadJob, VideoSearchResult
+from yt_clipper.domain.video import (
+    ClipRange,
+    DownloadJob,
+    DownloadStatus,
+    TikTokCaption,
+    VideoMetadata,
+    VideoSearchResult,
+)
 
 
 @dataclass(slots=True)
@@ -139,3 +148,33 @@ class CreateDownloadBatchUseCase:
             self.queue.enqueue_download(job.id)
             jobs.append(job)
         return jobs
+
+
+class GenerateTikTokCaptionUseCase:
+    def __init__(
+        self,
+        repository: DownloadJobRepository,
+        generator: CaptionGenerator,
+    ) -> None:
+        self.repository = repository
+        self.generator = generator
+
+    def execute(self, job_id: UUID) -> DownloadJob:
+        job = self.repository.get(job_id)
+        if job is None:
+            raise DomainError(f"download job not found: {job_id}")
+        if job.status != DownloadStatus.COMPLETED or not job.video_title:
+            raise CaptionNotAvailableError(
+                "caption requires a completed job with video metadata"
+            )
+        title = job.video_title  # narrowed to str by the guard above
+        metadata = VideoMetadata(
+            video_id="",
+            title=title,
+            description=job.video_description,
+            tags=list(job.youtube_tags),
+        )
+        caption: TikTokCaption = self.generator.generate(metadata)
+        job.apply_tiktok_caption(caption)
+        self.repository.update(job)
+        return job
