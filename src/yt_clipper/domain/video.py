@@ -37,6 +37,24 @@ class VideoMetadata:
     title: str
     duration_seconds: float | None = None
     webpage_url: str | None = None
+    description: str | None = None
+    tags: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class TikTokCaption:
+    caption: str
+    hashtags: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class VideoSearchResult:
+    video_id: str
+    title: str
+    url: str
+    duration_seconds: float | None = None
+    channel: str | None = None
+    thumbnail_url: str | None = None
 
 
 @dataclass(slots=True)
@@ -47,6 +65,12 @@ class DownloadJob:
     status: DownloadStatus = DownloadStatus.QUEUED
     output_path: str | None = None
     error_message: str | None = None
+    video_title: str | None = None
+    video_description: str | None = None
+    youtube_tags: list[str] = field(default_factory=list)
+    tiktok_caption: str | None = None
+    tiktok_hashtags: list[str] = field(default_factory=list)
+    tiktok_generated_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -67,4 +91,16 @@ class DownloadJob:
     def mark_failed(self, error_message: str) -> None:
         self.status = DownloadStatus.FAILED
         self.error_message = error_message
+        self.updated_at = datetime.now(UTC)
+
+    def apply_metadata(self, metadata: VideoMetadata) -> None:
+        self.video_title = metadata.title
+        self.video_description = metadata.description
+        self.youtube_tags = list(metadata.tags)
+        self.updated_at = datetime.now(UTC)
+
+    def apply_tiktok_caption(self, caption: TikTokCaption) -> None:
+        self.tiktok_caption = caption.caption
+        self.tiktok_hashtags = list(caption.hashtags)
+        self.tiktok_generated_at = datetime.now(UTC)
         self.updated_at = datetime.now(UTC)
