@@ -27,6 +27,8 @@ class DownloadJobRepository(Protocol):
 
     def update(self, job: DownloadJob) -> DownloadJob: ...
 
+    def delete(self, job_id: UUID) -> None: ...
+
 
 class JobQueue(Protocol):
     def enqueue_download(self, job_id: UUID) -> None: ...
@@ -41,7 +43,7 @@ class VideoProvider(Protocol):
 
 
 class CaptionGenerator(Protocol):
-    def generate(self, metadata: VideoMetadata) -> TikTokCaption: ...
+    def generate(self, metadata: VideoMetadata, model: str | None = None) -> TikTokCaption: ...
 
 
 class MediaProcessor(Protocol):
