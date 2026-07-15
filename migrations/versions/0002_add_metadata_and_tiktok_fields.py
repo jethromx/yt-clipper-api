@@ -1,7 +1,7 @@
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0002_add_metadata_and_tiktok_fields"
+revision = "0002_metadata_tiktok_fields"
 down_revision = "0001_create_download_jobs"
 branch_labels = None
 depends_on = None
