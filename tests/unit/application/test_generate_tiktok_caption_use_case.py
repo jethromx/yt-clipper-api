@@ -28,9 +28,11 @@ class FakeRepository:
 class FakeGenerator:
     def __init__(self) -> None:
         self.seen: VideoMetadata | None = None
+        self.seen_model: str | None = None
 
-    def generate(self, metadata: VideoMetadata) -> TikTokCaption:
+    def generate(self, metadata: VideoMetadata, model: str | None = None) -> TikTokCaption:
         self.seen = metadata
+        self.seen_model = model
         return TikTokCaption(caption="Mira esto", hashtags=["#viral", "#perros"])
 
 
@@ -62,3 +64,13 @@ def test_generate_caption_requires_metadata() -> None:
     job = DownloadJob(source_url="https://youtu.be/abc")  # no metadata, not completed
     with pytest.raises(CaptionNotAvailableError):
         GenerateTikTokCaptionUseCase(FakeRepository(job), FakeGenerator()).execute(job.id)
+
+
+def test_generate_caption_passes_model() -> None:
+    job = _completed_job()
+    generator = FakeGenerator()
+    use_case = GenerateTikTokCaptionUseCase(FakeRepository(job), generator)
+
+    use_case.execute(job.id, model="claude-sonnet-5")
+
+    assert generator.seen_model == "claude-sonnet-5"

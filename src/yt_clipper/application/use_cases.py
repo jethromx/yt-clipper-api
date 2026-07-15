@@ -159,7 +159,7 @@ class GenerateTikTokCaptionUseCase:
         self.repository = repository
         self.generator = generator
 
-    def execute(self, job_id: UUID) -> DownloadJob:
+    def execute(self, job_id: UUID, model: str | None = None) -> DownloadJob:
         job = self.repository.get(job_id)
         if job is None:
             raise DomainError(f"download job not found: {job_id}")
@@ -172,7 +172,20 @@ class GenerateTikTokCaptionUseCase:
             description=job.video_description,
             tags=list(job.youtube_tags),
         )
-        caption: TikTokCaption = self.generator.generate(metadata)
+        caption: TikTokCaption = self.generator.generate(metadata, model)
         job.apply_tiktok_caption(caption)
         self.repository.update(job)
         return job
+
+
+class DeleteDownloadUseCase:
+    def __init__(self, repository: DownloadJobRepository, storage: FileStorage) -> None:
+        self.repository = repository
+        self.storage = storage
+
+    def execute(self, job_id: UUID) -> None:
+        job = self.repository.get(job_id)
+        if job is None:
+            return
+        self.storage.cleanup_download_path(job)
+        self.repository.delete(job_id)
