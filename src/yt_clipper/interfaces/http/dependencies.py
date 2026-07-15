@@ -8,6 +8,7 @@ from yt_clipper.application.ports import CaptionGenerator
 from yt_clipper.application.use_cases import (
     CreateDownloadBatchUseCase,
     CreateDownloadUseCase,
+    DeleteDownloadUseCase,
     GenerateTikTokCaptionUseCase,
     GetDownloadUseCase,
     SearchVideosUseCase,
@@ -20,6 +21,7 @@ from yt_clipper.infrastructure.ai.anthropic_caption import (
 from yt_clipper.infrastructure.persistence.database import get_session
 from yt_clipper.infrastructure.persistence.repositories import SqlAlchemyDownloadJobRepository
 from yt_clipper.infrastructure.queue.celery_queue import CeleryJobQueue
+from yt_clipper.infrastructure.storage.local import LocalFileStorage
 from yt_clipper.infrastructure.youtube.ytdlp_provider import YtDlpVideoProvider
 
 
@@ -94,3 +96,14 @@ def get_generate_caption_use_case(
     generator: CaptionGenerator = Depends(get_caption_generator),
 ) -> GenerateTikTokCaptionUseCase:
     return GenerateTikTokCaptionUseCase(repository, generator)
+
+
+def get_file_storage(settings: Settings = Depends(get_settings)) -> LocalFileStorage:
+    return LocalFileStorage(settings.storage_dir)
+
+
+def get_delete_download_use_case(
+    repository: SqlAlchemyDownloadJobRepository = Depends(get_download_repository),
+    storage: LocalFileStorage = Depends(get_file_storage),
+) -> DeleteDownloadUseCase:
+    return DeleteDownloadUseCase(repository, storage)
