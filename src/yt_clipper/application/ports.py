@@ -1,10 +1,23 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
-from yt_clipper.domain.video import ClipRange, DownloadJob, VideoMetadata
+from yt_clipper.domain.video import (
+    ClipRange,
+    DownloadJob,
+    TikTokCaption,
+    VideoMetadata,
+    VideoSearchResult,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class DownloadResult:
+    path: Path
+    metadata: VideoMetadata
 
 
 class DownloadJobRepository(Protocol):
@@ -22,7 +35,13 @@ class JobQueue(Protocol):
 class VideoProvider(Protocol):
     def get_metadata(self, source_url: str) -> VideoMetadata: ...
 
-    def download_best(self, source_url: str, output_dir: Path) -> Path: ...
+    def download_best(self, source_url: str, output_dir: Path) -> DownloadResult: ...
+
+    def search(self, query: str, limit: int) -> list[VideoSearchResult]: ...
+
+
+class CaptionGenerator(Protocol):
+    def generate(self, metadata: VideoMetadata) -> TikTokCaption: ...
 
 
 class MediaProcessor(Protocol):
