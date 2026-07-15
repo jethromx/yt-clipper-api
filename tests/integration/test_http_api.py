@@ -19,6 +19,7 @@ from yt_clipper.interfaces.http.dependencies import (
     configured_storage_dir,
     get_create_download_batch_use_case,
     get_create_download_use_case,
+    get_delete_download_use_case,
     get_generate_caption_use_case,
     get_get_download_use_case,
     get_search_use_case,
@@ -230,7 +231,7 @@ class FakeBatchUseCase:
 
 
 class FakeCaptionUseCase:
-    def execute(self, job_id: UUID) -> DownloadJob:
+    def execute(self, job_id: UUID, model: str | None = None) -> DownloadJob:
         job = DownloadJob(source_url="https://youtu.be/abc")
         job.apply_metadata(VideoMetadata(video_id="abc", title="T"))
         job.mark_completed("out.mp4")
@@ -239,7 +240,7 @@ class FakeCaptionUseCase:
 
 
 class UnavailableCaptionUseCase:
-    def execute(self, job_id: UUID) -> DownloadJob:
+    def execute(self, job_id: UUID, model: str | None = None) -> DownloadJob:
         raise CaptionGeneratorUnavailableError("configura la key")
 
 
@@ -315,3 +316,78 @@ def test_generate_tiktok_caption_unavailable_returns_503() -> None:
     )
 
     assert response.status_code == 503
+
+
+class RecordingCaptionUseCase:
+    def __init__(self) -> None:
+        self.model = "unset"
+
+    def execute(self, job_id, model=None):  # type: ignore[no-untyped-def]
+        self.model = model
+        job = DownloadJob(source_url="https://youtu.be/abc")
+        job.apply_metadata(VideoMetadata(video_id="abc", title="T"))
+        job.mark_completed("out.mp4")
+        job.apply_tiktok_caption(TikTokCaption(caption="Mira", hashtags=["#viral"]))
+        return job
+
+
+class RecordingDeleteUseCase:
+    def __init__(self) -> None:
+        self.deleted: list = []
+
+    def execute(self, job_id) -> None:  # type: ignore[no-untyped-def]
+        self.deleted.append(job_id)
+
+
+def test_models_endpoint_lists_allowlist() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/v1/models", headers={"X-API-Key": "dev-secret-change-me"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["default"] in body["models"]
+    assert "claude-haiku-4-5" in body["models"]
+
+
+def test_tiktok_accepts_valid_model() -> None:
+    app = create_app()
+    use_case = RecordingCaptionUseCase()
+    app.dependency_overrides[get_generate_caption_use_case] = lambda: use_case
+    client = TestClient(app)
+
+    response = client.post(
+        f"/api/v1/downloads/{uuid4()}/tiktok",
+        headers={"X-API-Key": "dev-secret-change-me"},
+        json={"model": "claude-sonnet-5"},
+    )
+
+    assert response.status_code == 200
+    assert use_case.model == "claude-sonnet-5"
+
+
+def test_tiktok_rejects_unknown_model() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        f"/api/v1/downloads/{uuid4()}/tiktok",
+        headers={"X-API-Key": "dev-secret-change-me"},
+        json={"model": "gpt-4"},
+    )
+
+    assert response.status_code == 400
+
+
+def test_delete_download_returns_204() -> None:
+    app = create_app()
+    use_case = RecordingDeleteUseCase()
+    app.dependency_overrides[get_delete_download_use_case] = lambda: use_case
+    client = TestClient(app)
+
+    response = client.delete(
+        f"/api/v1/downloads/{uuid4()}",
+        headers={"X-API-Key": "dev-secret-change-me"},
+    )
+
+    assert response.status_code == 204
+    assert len(use_case.deleted) == 1

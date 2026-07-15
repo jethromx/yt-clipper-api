@@ -8,10 +8,12 @@ from yt_clipper.application.use_cases import (
     CreateDownloadBatchUseCase,
     CreateDownloadCommand,
     CreateDownloadUseCase,
+    DeleteDownloadUseCase,
     GenerateTikTokCaptionUseCase,
     GetDownloadUseCase,
     SearchVideosUseCase,
 )
+from yt_clipper.config import Settings, get_settings
 from yt_clipper.domain.exceptions import (
     CaptionGenerationError,
     CaptionGeneratorUnavailableError,
@@ -23,6 +25,7 @@ from yt_clipper.interfaces.http.dependencies import (
     configured_storage_dir,
     get_create_download_batch_use_case,
     get_create_download_use_case,
+    get_delete_download_use_case,
     get_generate_caption_use_case,
     get_get_download_use_case,
     get_search_use_case,
@@ -33,6 +36,8 @@ from yt_clipper.interfaces.http.schemas import (
     BatchDownloadResponse,
     CreateDownloadRequest,
     DownloadJobResponse,
+    GenerateCaptionRequest,
+    ModelsResponse,
     SearchResponse,
     SearchResultResponse,
 )
@@ -69,6 +74,14 @@ def search_videos(
     except DomainError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return SearchResponse(results=[SearchResultResponse.from_domain(r) for r in results])
+
+
+@router.get("/models", response_model=ModelsResponse)
+def list_models(settings: Settings = Depends(get_settings)) -> ModelsResponse:
+    return ModelsResponse(
+        models=list(settings.anthropic_allowed_models),
+        default=settings.anthropic_model,
+    )
 
 
 @router.post(
@@ -120,13 +133,30 @@ def download_file(
     return FileResponse(path, filename=path.name)
 
 
+@router.delete("/downloads/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_download(
+    job_id: UUID,
+    use_case: DeleteDownloadUseCase = Depends(get_delete_download_use_case),
+) -> Response:
+    use_case.execute(job_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/downloads/{job_id}/tiktok", response_model=DownloadJobResponse)
 def generate_tiktok_caption(
     job_id: UUID,
+    request: GenerateCaptionRequest | None = None,
     use_case: GenerateTikTokCaptionUseCase = Depends(get_generate_caption_use_case),
+    settings: Settings = Depends(get_settings),
 ) -> DownloadJobResponse:
+    model = request.model if request else None
+    if model is not None and model not in settings.anthropic_allowed_models:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported model: {model}",
+        )
     try:
-        job = use_case.execute(job_id)
+        job = use_case.execute(job_id, model=model)
     except CaptionGeneratorUnavailableError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
