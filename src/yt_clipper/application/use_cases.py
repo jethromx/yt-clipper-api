@@ -12,8 +12,14 @@ from yt_clipper.application.ports import (
     MediaProcessor,
     VideoProvider,
 )
-from yt_clipper.domain.exceptions import DomainError, InvalidClipRangeError
-from yt_clipper.domain.video import ClipRange, DownloadJob
+from yt_clipper.domain.exceptions import (
+    BatchTooLargeError,
+    DomainError,
+    EmptyBatchError,
+    EmptySearchQueryError,
+    InvalidClipRangeError,
+)
+from yt_clipper.domain.video import ClipRange, DownloadJob, VideoSearchResult
 
 
 @dataclass(slots=True)
@@ -99,3 +105,37 @@ class ExecuteDownloadJobUseCase:
             job.clip_range,
             self.storage.prepare_clip_path(job, downloaded_path),
         )
+
+
+MAX_BATCH_SIZE = 50
+MAX_SEARCH_LIMIT = 50
+
+
+class SearchVideosUseCase:
+    def __init__(self, video_provider: VideoProvider) -> None:
+        self.video_provider = video_provider
+
+    def execute(self, query: str, limit: int) -> list[VideoSearchResult]:
+        if not query.strip():
+            raise EmptySearchQueryError("query must not be empty")
+        bounded = max(1, min(limit, MAX_SEARCH_LIMIT))
+        return self.video_provider.search(query.strip(), bounded)
+
+
+class CreateDownloadBatchUseCase:
+    def __init__(self, repository: DownloadJobRepository, queue: JobQueue) -> None:
+        self.repository = repository
+        self.queue = queue
+
+    def execute(self, source_urls: list[str]) -> list[DownloadJob]:
+        if not source_urls:
+            raise EmptyBatchError("source_urls must not be empty")
+        if len(source_urls) > MAX_BATCH_SIZE:
+            raise BatchTooLargeError(f"batch exceeds {MAX_BATCH_SIZE} items")
+        jobs: list[DownloadJob] = []
+        for source_url in source_urls:
+            job = DownloadJob(source_url=source_url)
+            self.repository.add(job)
+            self.queue.enqueue_download(job.id)
+            jobs.append(job)
+        return jobs
