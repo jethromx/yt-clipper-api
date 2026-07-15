@@ -82,3 +82,29 @@ def test_anthropic_generator_errors_when_no_tool_use() -> None:
 
     with pytest.raises(CaptionGenerationError):
         generator.generate(_metadata())
+
+
+def test_anthropic_generator_uses_model_override() -> None:
+    response = _Response(
+        [_Block("emit_tiktok_caption", {"caption": "Hola", "hashtags": ["#a"]})]
+    )
+    messages = FakeMessages(response=response)
+    client = FakeClient(messages)
+    generator = AnthropicCaptionGenerator(model="claude-haiku-4-5", client=client)
+
+    generator.generate(_metadata(), model="claude-sonnet-5")
+
+    assert messages.kwargs["model"] == "claude-sonnet-5"
+
+
+def test_anthropic_generator_falls_back_to_default_model() -> None:
+    response = _Response(
+        [_Block("emit_tiktok_caption", {"caption": "Hola", "hashtags": ["#a"]})]
+    )
+    messages = FakeMessages(response=response)
+    client = FakeClient(messages)
+    generator = AnthropicCaptionGenerator(model="claude-haiku-4-5", client=client)
+
+    generator.generate(_metadata())
+
+    assert messages.kwargs["model"] == "claude-haiku-4-5"

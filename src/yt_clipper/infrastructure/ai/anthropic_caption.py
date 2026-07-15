@@ -41,7 +41,7 @@ _TOOL = {
 
 
 class UnavailableCaptionGenerator:
-    def generate(self, metadata: VideoMetadata) -> TikTokCaption:
+    def generate(self, metadata: VideoMetadata, model: str | None = None) -> TikTokCaption:
         raise CaptionGeneratorUnavailableError(
             "Configura ANTHROPIC_API_KEY para generar captions de TikTok"
         )
@@ -62,10 +62,10 @@ class AnthropicCaptionGenerator:
 
             self._client = anthropic.Anthropic(api_key=api_key)
 
-    def generate(self, metadata: VideoMetadata) -> TikTokCaption:
+    def generate(self, metadata: VideoMetadata, model: str | None = None) -> TikTokCaption:
         try:
             response = self._client.messages.create(
-                model=self.model,
+                model=model or self.model,
                 max_tokens=512,
                 system=_SYSTEM_PROMPT,
                 tools=[_TOOL],
