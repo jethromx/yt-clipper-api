@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, String, Text
+from sqlalchemy import JSON, DateTime, Float, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -20,3 +20,11 @@ class DownloadJobRecord(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    video_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    video_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    youtube_tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    tiktok_caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tiktok_hashtags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    tiktok_generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

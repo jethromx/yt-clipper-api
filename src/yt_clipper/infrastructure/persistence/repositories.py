@@ -48,6 +48,12 @@ class SqlAlchemyDownloadJobRepository:
         record.error_message = job.error_message
         record.created_at = job.created_at
         record.updated_at = job.updated_at
+        record.video_title = job.video_title
+        record.video_description = job.video_description
+        record.youtube_tags = list(job.youtube_tags)
+        record.tiktok_caption = job.tiktok_caption
+        record.tiktok_hashtags = list(job.tiktok_hashtags)
+        record.tiktok_generated_at = job.tiktok_generated_at
 
     @staticmethod
     def _to_domain(record: DownloadJobRecord) -> DownloadJob:
@@ -63,4 +69,10 @@ class SqlAlchemyDownloadJobRepository:
             error_message=record.error_message,
             created_at=record.created_at,
             updated_at=record.updated_at,
+            video_title=record.video_title,
+            video_description=record.video_description,
+            youtube_tags=list(record.youtube_tags or []),
+            tiktok_caption=record.tiktok_caption,
+            tiktok_hashtags=list(record.tiktok_hashtags or []),
+            tiktok_generated_at=record.tiktok_generated_at,
         )
