@@ -43,3 +43,45 @@ def test_repository_update_inserts_missing_job() -> None:
         repository.update(job)
 
         assert repository.get(job.id) is not None
+
+
+def test_repository_delete_removes_job() -> None:
+    from uuid import uuid4
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        repo = SqlAlchemyDownloadJobRepository(session)
+        job = DownloadJob(source_url="https://youtu.be/abc")
+        repo.add(job)
+
+        repo.delete(job.id)
+
+        assert repo.get(job.id) is None
+        # deleting a non-existent id must not raise
+        repo.delete(uuid4())
+
+
+def test_repository_round_trips_metadata_and_tiktok() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        from yt_clipper.domain.video import DownloadJob, TikTokCaption, VideoMetadata
+        from yt_clipper.infrastructure.persistence.repositories import (
+            SqlAlchemyDownloadJobRepository,
+        )
+
+        repo = SqlAlchemyDownloadJobRepository(session)
+        job = DownloadJob(source_url="https://youtu.be/abc")
+        job.apply_metadata(VideoMetadata(video_id="abc", title="T", description="D", tags=["a"]))
+        job.apply_tiktok_caption(TikTokCaption(caption="C", hashtags=["#a"]))
+        repo.add(job)
+
+        loaded = repo.get(job.id)
+
+        assert loaded is not None
+        assert loaded.video_title == "T"
+        assert loaded.youtube_tags == ["a"]
+        assert loaded.tiktok_caption == "C"
+        assert loaded.tiktok_hashtags == ["#a"]
+        assert loaded.tiktok_generated_at is not None

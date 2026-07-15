@@ -6,14 +6,29 @@ from pathlib import Path
 from uuid import UUID
 
 from yt_clipper.application.ports import (
+    CaptionGenerator,
     DownloadJobRepository,
     FileStorage,
     JobQueue,
     MediaProcessor,
     VideoProvider,
 )
-from yt_clipper.domain.exceptions import DomainError, InvalidClipRangeError
-from yt_clipper.domain.video import ClipRange, DownloadJob
+from yt_clipper.domain.exceptions import (
+    BatchTooLargeError,
+    CaptionNotAvailableError,
+    DomainError,
+    EmptyBatchError,
+    EmptySearchQueryError,
+    InvalidClipRangeError,
+)
+from yt_clipper.domain.video import (
+    ClipRange,
+    DownloadJob,
+    DownloadStatus,
+    TikTokCaption,
+    VideoMetadata,
+    VideoSearchResult,
+)
 
 
 @dataclass(slots=True)
@@ -74,11 +89,12 @@ class ExecuteDownloadJobUseCase:
         self.repository.update(job)
 
         try:
-            downloaded_path = self.video_provider.download_best(
+            result = self.video_provider.download_best(
                 job.source_url,
                 self.storage.prepare_download_path(job),
             )
-            output_path = self._clip_if_needed(job, downloaded_path)
+            job.apply_metadata(result.metadata)
+            output_path = self._clip_if_needed(job, result.path)
             job.mark_completed(str(output_path))
         except Exception as exc:
             job.mark_failed(str(exc))
@@ -98,3 +114,78 @@ class ExecuteDownloadJobUseCase:
             job.clip_range,
             self.storage.prepare_clip_path(job, downloaded_path),
         )
+
+
+MAX_BATCH_SIZE = 50
+MAX_SEARCH_LIMIT = 50
+
+
+class SearchVideosUseCase:
+    def __init__(self, video_provider: VideoProvider) -> None:
+        self.video_provider = video_provider
+
+    def execute(self, query: str, limit: int) -> list[VideoSearchResult]:
+        if not query.strip():
+            raise EmptySearchQueryError("query must not be empty")
+        bounded = max(1, min(limit, MAX_SEARCH_LIMIT))
+        return self.video_provider.search(query.strip(), bounded)
+
+
+class CreateDownloadBatchUseCase:
+    def __init__(self, repository: DownloadJobRepository, queue: JobQueue) -> None:
+        self.repository = repository
+        self.queue = queue
+
+    def execute(self, source_urls: list[str]) -> list[DownloadJob]:
+        if not source_urls:
+            raise EmptyBatchError("source_urls must not be empty")
+        if len(source_urls) > MAX_BATCH_SIZE:
+            raise BatchTooLargeError(f"batch exceeds {MAX_BATCH_SIZE} items")
+        jobs: list[DownloadJob] = []
+        for source_url in source_urls:
+            job = DownloadJob(source_url=source_url)
+            self.repository.add(job)
+            self.queue.enqueue_download(job.id)
+            jobs.append(job)
+        return jobs
+
+
+class GenerateTikTokCaptionUseCase:
+    def __init__(
+        self,
+        repository: DownloadJobRepository,
+        generator: CaptionGenerator,
+    ) -> None:
+        self.repository = repository
+        self.generator = generator
+
+    def execute(self, job_id: UUID, model: str | None = None) -> DownloadJob:
+        job = self.repository.get(job_id)
+        if job is None:
+            raise DomainError(f"download job not found: {job_id}")
+        if job.status != DownloadStatus.COMPLETED or not job.video_title:
+            raise CaptionNotAvailableError("caption requires a completed job with video metadata")
+        title = job.video_title  # narrowed to str by the guard above
+        metadata = VideoMetadata(
+            video_id="",
+            title=title,
+            description=job.video_description,
+            tags=list(job.youtube_tags),
+        )
+        caption: TikTokCaption = self.generator.generate(metadata, model)
+        job.apply_tiktok_caption(caption)
+        self.repository.update(job)
+        return job
+
+
+class DeleteDownloadUseCase:
+    def __init__(self, repository: DownloadJobRepository, storage: FileStorage) -> None:
+        self.repository = repository
+        self.storage = storage
+
+    def execute(self, job_id: UUID) -> None:
+        job = self.repository.get(job_id)
+        if job is None:
+            return
+        self.storage.cleanup_download_path(job)
+        self.repository.delete(job_id)

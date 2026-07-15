@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.13.2",
+    "anthropic>=0.40.0",
     "celery[redis]>=5.4.0",
     "fastapi>=0.111.0",
     "imageio-ffmpeg>=0.5.1",

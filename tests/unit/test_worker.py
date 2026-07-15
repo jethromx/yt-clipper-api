@@ -32,6 +32,9 @@ def test_worker_executes_download_job(monkeypatch) -> None:  # type: ignore[no-u
     monkeypatch.setattr(worker, "SessionLocal", lambda: FakeSession())
     monkeypatch.setattr(worker, "SqlAlchemyDownloadJobRepository", FakeRepository)
     monkeypatch.setattr(worker, "ExecuteDownloadJobUseCase", FakeUseCase)
+    # Hermetic: avoid LocalFileStorage touching the real filesystem (STORAGE_DIR
+    # may point at a read-only path like /app/downloads via a local .env).
+    monkeypatch.setattr(worker, "LocalFileStorage", lambda root: object())
     job_id = uuid4()
 
     result = worker.execute_download_job.run(str(job_id))

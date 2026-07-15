@@ -24,8 +24,17 @@ class Settings(BaseSettings):
     ytdlp_socket_timeout_seconds: int = 30
     ffmpeg_timeout_seconds: int = 1_800
     celery_task_always_eager: bool = False
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-haiku-4-5"
+    anthropic_allowed_models: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: [
+            "claude-haiku-4-5",
+            "claude-sonnet-5",
+            "claude-opus-4-8",
+        ]
+    )
 
-    @field_validator("api_keys", "cors_origins", mode="before")
+    @field_validator("api_keys", "cors_origins", "anthropic_allowed_models", mode="before")
     @classmethod
     def split_csv(cls, value: str | list[str]) -> list[str]:
         if isinstance(value, str):

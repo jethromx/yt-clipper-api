@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
-from yt_clipper.domain.video import DownloadJob, DownloadStatus
+from yt_clipper.domain.video import DownloadJob, DownloadStatus, VideoSearchResult
 
 
 class CreateDownloadRequest(BaseModel):
@@ -28,6 +28,12 @@ class DownloadJobResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+    video_title: str | None
+    video_description: str | None
+    youtube_tags: list[str]
+    tiktok_caption: str | None
+    tiktok_hashtags: list[str]
+    tiktok_generated_at: datetime | None
 
     @classmethod
     def from_domain(cls, job: DownloadJob) -> "DownloadJobResponse":
@@ -41,4 +47,51 @@ class DownloadJobResponse(BaseModel):
             error_message=job.error_message,
             created_at=job.created_at,
             updated_at=job.updated_at,
+            video_title=job.video_title,
+            video_description=job.video_description,
+            youtube_tags=list(job.youtube_tags),
+            tiktok_caption=job.tiktok_caption,
+            tiktok_hashtags=list(job.tiktok_hashtags),
+            tiktok_generated_at=job.tiktok_generated_at,
         )
+
+
+class BatchDownloadRequest(BaseModel):
+    source_urls: list[HttpUrl] = Field(min_length=1, max_length=50)
+
+
+class BatchDownloadResponse(BaseModel):
+    jobs: list[DownloadJobResponse]
+
+
+class SearchResultResponse(BaseModel):
+    video_id: str
+    title: str
+    url: str
+    duration_seconds: float | None
+    channel: str | None
+    thumbnail_url: str | None
+
+    @classmethod
+    def from_domain(cls, result: VideoSearchResult) -> "SearchResultResponse":
+        return cls(
+            video_id=result.video_id,
+            title=result.title,
+            url=result.url,
+            duration_seconds=result.duration_seconds,
+            channel=result.channel,
+            thumbnail_url=result.thumbnail_url,
+        )
+
+
+class SearchResponse(BaseModel):
+    results: list[SearchResultResponse]
+
+
+class GenerateCaptionRequest(BaseModel):
+    model: str | None = None
+
+
+class ModelsResponse(BaseModel):
+    models: list[str]
+    default: str

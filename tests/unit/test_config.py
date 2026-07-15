@@ -6,3 +6,25 @@ def test_settings_splits_csv_environment_values() -> None:
 
     assert settings.api_keys == ["first", "second"]
     assert settings.cors_origins == ["http://localhost:3000"]
+
+
+def test_settings_expose_anthropic_defaults(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from yt_clipper.config import Settings
+
+    # Hermetic: ignore any ambient ANTHROPIC_API_KEY (shell env or local .env)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    assert settings.anthropic_api_key is None
+    assert settings.anthropic_model == "claude-haiku-4-5"
+
+
+def test_settings_expose_allowed_models() -> None:
+    from yt_clipper.config import Settings
+
+    settings = Settings()
+
+    assert settings.anthropic_model in settings.anthropic_allowed_models
+    assert "claude-haiku-4-5" in settings.anthropic_allowed_models
+    assert "claude-sonnet-5" in settings.anthropic_allowed_models
+    assert "claude-opus-4-8" in settings.anthropic_allowed_models

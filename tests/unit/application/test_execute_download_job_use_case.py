@@ -3,9 +3,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from yt_clipper.application.ports import DownloadResult
 from yt_clipper.application.use_cases import ExecuteDownloadJobUseCase, GetDownloadUseCase
 from yt_clipper.domain.exceptions import DomainError
-from yt_clipper.domain.video import ClipRange, DownloadJob
+from yt_clipper.domain.video import ClipRange, DownloadJob, VideoMetadata
 
 
 class FakeRepository:
@@ -29,14 +30,20 @@ class FakeRepository:
 
 
 class FakeVideoProvider:
-    def __init__(self, path: Path, raises: Exception | None = None) -> None:
+    def __init__(
+        self,
+        path: Path,
+        raises: Exception | None = None,
+        metadata: VideoMetadata | None = None,
+    ) -> None:
         self.path = path
         self.raises = raises
+        self.metadata = metadata or VideoMetadata(video_id="abc", title="Titulo")
 
-    def download_best(self, source_url: str, output_dir: Path) -> Path:
+    def download_best(self, source_url: str, output_dir: Path) -> DownloadResult:
         if self.raises is not None:
             raise self.raises
-        return self.path
+        return DownloadResult(path=self.path, metadata=self.metadata)
 
 
 class FakeMediaProcessor:
@@ -103,6 +110,23 @@ def test_execute_download_job_clips_when_range_is_present() -> None:
     result = use_case.execute(job.id)
 
     assert result.output_path == f"downloads/{job.id}/clip.mp4"
+
+
+def test_execute_download_job_applies_metadata() -> None:
+    job = DownloadJob(source_url="https://www.youtube.com/watch?v=abc123")
+    provider = FakeVideoProvider(
+        Path("downloads/video.mp4"),
+        metadata=VideoMetadata(video_id="abc", title="Titulo real", description="Desc", tags=["x"]),
+    )
+    use_case = ExecuteDownloadJobUseCase(
+        FakeRepository(job), provider, FakeMediaProcessor(), FakeStorage()
+    )
+
+    result = use_case.execute(job.id)
+
+    assert result.video_title == "Titulo real"
+    assert result.video_description == "Desc"
+    assert result.youtube_tags == ["x"]
 
 
 def test_execute_download_job_marks_failed_and_reraises() -> None:
