@@ -70,7 +70,8 @@ class YtDlpVideoProvider:
     def _first_thumbnail(entry: dict[str, Any]) -> str | None:
         thumbnails = entry.get("thumbnails") or []
         if thumbnails:
-            return thumbnails[-1].get("url")
+            url = thumbnails[-1].get("url")
+            return str(url) if url else None
         thumbnail = entry.get("thumbnail")
         return str(thumbnail) if thumbnail else None
 

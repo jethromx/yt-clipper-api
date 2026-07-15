@@ -116,9 +116,7 @@ def test_execute_download_job_applies_metadata() -> None:
     job = DownloadJob(source_url="https://www.youtube.com/watch?v=abc123")
     provider = FakeVideoProvider(
         Path("downloads/video.mp4"),
-        metadata=VideoMetadata(
-            video_id="abc", title="Titulo real", description="Desc", tags=["x"]
-        ),
+        metadata=VideoMetadata(video_id="abc", title="Titulo real", description="Desc", tags=["x"]),
     )
     use_case = ExecuteDownloadJobUseCase(
         FakeRepository(job), provider, FakeMediaProcessor(), FakeStorage()

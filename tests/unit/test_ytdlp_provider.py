@@ -155,9 +155,7 @@ def test_search_maps_entries(monkeypatch) -> None:  # type: ignore[no-untyped-de
                 ]
             }
 
-    monkeypatch.setattr(
-        "yt_clipper.infrastructure.youtube.ytdlp_provider.YoutubeDL", FakeYoutubeDL
-    )
+    monkeypatch.setattr("yt_clipper.infrastructure.youtube.ytdlp_provider.YoutubeDL", FakeYoutubeDL)
     provider = YtDlpVideoProvider(socket_timeout_seconds=5)
 
     results = provider.search("perros", limit=2)

@@ -164,9 +164,7 @@ class GenerateTikTokCaptionUseCase:
         if job is None:
             raise DomainError(f"download job not found: {job_id}")
         if job.status != DownloadStatus.COMPLETED or not job.video_title:
-            raise CaptionNotAvailableError(
-                "caption requires a completed job with video metadata"
-            )
+            raise CaptionNotAvailableError("caption requires a completed job with video metadata")
         title = job.video_title  # narrowed to str by the guard above
         metadata = VideoMetadata(
             video_id="",

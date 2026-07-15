@@ -278,10 +278,12 @@ def test_batch_creates_jobs() -> None:
     response = client.post(
         "/api/v1/downloads/batch",
         headers={"X-API-Key": "dev-secret-change-me"},
-        json={"source_urls": [
-            "https://www.youtube.com/watch?v=a",
-            "https://www.youtube.com/watch?v=b",
-        ]},
+        json={
+            "source_urls": [
+                "https://www.youtube.com/watch?v=a",
+                "https://www.youtube.com/watch?v=b",
+            ]
+        },
     )
 
     assert response.status_code == 202
