@@ -67,10 +67,11 @@ def create_download(
 def search_videos(
     q: str = Query(...),
     limit: int = Query(default=20, ge=1, le=50),
+    max_duration_seconds: int | None = Query(default=None, ge=1),
     use_case: SearchVideosUseCase = Depends(get_search_use_case),
 ) -> SearchResponse:
     try:
-        results = use_case.execute(q, limit)
+        results = use_case.execute(q, limit, max_duration_seconds=max_duration_seconds)
     except DomainError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return SearchResponse(results=[SearchResultResponse.from_domain(r) for r in results])

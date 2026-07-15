@@ -207,7 +207,11 @@ def test_get_download_rejects_unknown_uuid() -> None:
 
 
 class FakeSearchUseCase:
-    def execute(self, query: str, limit: int) -> list[VideoSearchResult]:
+    def __init__(self) -> None:
+        self.received_max_duration: object = "unset"
+
+    def execute(self, query: str, limit: int, max_duration_seconds=None):  # type: ignore[no-untyped-def]
+        self.received_max_duration = max_duration_seconds
         return [
             VideoSearchResult(
                 video_id="abc",
@@ -269,6 +273,22 @@ def test_search_requires_query() -> None:
     )
 
     assert response.status_code == 400
+
+
+def test_search_passes_max_duration_seconds() -> None:
+    app = create_app()
+    use_case = FakeSearchUseCase()
+    app.dependency_overrides[get_search_use_case] = lambda: use_case
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/search",
+        params={"q": "perros", "limit": 5, "max_duration_seconds": 60},
+        headers={"X-API-Key": "dev-secret-change-me"},
+    )
+
+    assert response.status_code == 200
+    assert use_case.received_max_duration == 60
 
 
 def test_batch_creates_jobs() -> None:

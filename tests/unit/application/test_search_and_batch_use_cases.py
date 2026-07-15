@@ -83,3 +83,57 @@ def test_batch_rejects_oversized_list() -> None:
     urls = [f"https://youtu.be/{i}" for i in range(51)]
     with pytest.raises(BatchTooLargeError):
         CreateDownloadBatchUseCase(FakeRepository(), FakeQueue()).execute(urls)
+
+
+class DurationSearchProvider:
+    def __init__(self, results: list[VideoSearchResult]) -> None:
+        self.results = results
+        self.calls: list[tuple[str, int]] = []
+
+    def search(self, query: str, limit: int) -> list[VideoSearchResult]:
+        self.calls.append((query, limit))
+        return self.results
+
+
+def _result(video_id: str, duration: float | None) -> VideoSearchResult:
+    return VideoSearchResult(
+        video_id=video_id, title=video_id, url=f"u/{video_id}", duration_seconds=duration
+    )
+
+
+def test_search_filters_by_max_duration_and_excludes_unknown() -> None:
+    provider = DurationSearchProvider(
+        [_result("a", 30), _result("b", 120), _result("c", None), _result("d", 60)]
+    )
+    use_case = SearchVideosUseCase(provider)
+
+    results = use_case.execute("perros", limit=10, max_duration_seconds=60)
+
+    assert [r.video_id for r in results] == ["a", "d"]
+
+
+def test_search_overfetches_when_filtering() -> None:
+    provider = DurationSearchProvider([_result("a", 10)])
+    use_case = SearchVideosUseCase(provider)
+
+    use_case.execute("perros", limit=10, max_duration_seconds=60)
+
+    assert provider.calls == [("perros", 30)]
+
+
+def test_search_trims_filtered_results_to_limit() -> None:
+    provider = DurationSearchProvider([_result(str(i), 10) for i in range(10)])
+    use_case = SearchVideosUseCase(provider)
+
+    results = use_case.execute("perros", limit=3, max_duration_seconds=60)
+
+    assert len(results) == 3
+
+
+def test_search_without_max_duration_keeps_current_behavior() -> None:
+    provider = DurationSearchProvider([_result("a", 10)])
+    use_case = SearchVideosUseCase(provider)
+
+    use_case.execute("perros", limit=5)
+
+    assert provider.calls == [("perros", 5)]

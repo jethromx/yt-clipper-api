@@ -118,17 +118,30 @@ class ExecuteDownloadJobUseCase:
 
 MAX_BATCH_SIZE = 50
 MAX_SEARCH_LIMIT = 50
+OVER_FETCH_FACTOR = 3
 
 
 class SearchVideosUseCase:
     def __init__(self, video_provider: VideoProvider) -> None:
         self.video_provider = video_provider
 
-    def execute(self, query: str, limit: int) -> list[VideoSearchResult]:
+    def execute(
+        self, query: str, limit: int, max_duration_seconds: int | None = None
+    ) -> list[VideoSearchResult]:
         if not query.strip():
             raise EmptySearchQueryError("query must not be empty")
         bounded = max(1, min(limit, MAX_SEARCH_LIMIT))
-        return self.video_provider.search(query.strip(), bounded)
+        if max_duration_seconds is None:
+            return self.video_provider.search(query.strip(), bounded)
+        fetch_limit = min(bounded * OVER_FETCH_FACTOR, MAX_SEARCH_LIMIT)
+        results = self.video_provider.search(query.strip(), fetch_limit)
+        filtered = [
+            result
+            for result in results
+            if result.duration_seconds is not None
+            and result.duration_seconds <= max_duration_seconds
+        ]
+        return filtered[:bounded]
 
 
 class CreateDownloadBatchUseCase:
