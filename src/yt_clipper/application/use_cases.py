@@ -74,11 +74,12 @@ class ExecuteDownloadJobUseCase:
         self.repository.update(job)
 
         try:
-            downloaded_path = self.video_provider.download_best(
+            result = self.video_provider.download_best(
                 job.source_url,
                 self.storage.prepare_download_path(job),
             )
-            output_path = self._clip_if_needed(job, downloaded_path)
+            job.apply_metadata(result.metadata)
+            output_path = self._clip_if_needed(job, result.path)
             job.mark_completed(str(output_path))
         except Exception as exc:
             job.mark_failed(str(exc))
