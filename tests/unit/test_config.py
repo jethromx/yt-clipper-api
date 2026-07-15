@@ -8,10 +8,12 @@ def test_settings_splits_csv_environment_values() -> None:
     assert settings.cors_origins == ["http://localhost:3000"]
 
 
-def test_settings_expose_anthropic_defaults() -> None:
+def test_settings_expose_anthropic_defaults(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     from yt_clipper.config import Settings
 
-    settings = Settings()
+    # Hermetic: ignore any ambient ANTHROPIC_API_KEY (shell env or local .env)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
 
     assert settings.anthropic_api_key is None
     assert settings.anthropic_model == "claude-haiku-4-5"
