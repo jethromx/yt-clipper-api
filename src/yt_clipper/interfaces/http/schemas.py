@@ -86,3 +86,12 @@ class SearchResultResponse(BaseModel):
 
 class SearchResponse(BaseModel):
     results: list[SearchResultResponse]
+
+
+class GenerateCaptionRequest(BaseModel):
+    model: str | None = None
+
+
+class ModelsResponse(BaseModel):
+    models: list[str]
+    default: str
