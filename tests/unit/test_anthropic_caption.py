@@ -85,9 +85,7 @@ def test_anthropic_generator_errors_when_no_tool_use() -> None:
 
 
 def test_anthropic_generator_uses_model_override() -> None:
-    response = _Response(
-        [_Block("emit_tiktok_caption", {"caption": "Hola", "hashtags": ["#a"]})]
-    )
+    response = _Response([_Block("emit_tiktok_caption", {"caption": "Hola", "hashtags": ["#a"]})])
     messages = FakeMessages(response=response)
     client = FakeClient(messages)
     generator = AnthropicCaptionGenerator(model="claude-haiku-4-5", client=client)
@@ -98,9 +96,7 @@ def test_anthropic_generator_uses_model_override() -> None:
 
 
 def test_anthropic_generator_falls_back_to_default_model() -> None:
-    response = _Response(
-        [_Block("emit_tiktok_caption", {"caption": "Hola", "hashtags": ["#a"]})]
-    )
+    response = _Response([_Block("emit_tiktok_caption", {"caption": "Hola", "hashtags": ["#a"]})])
     messages = FakeMessages(response=response)
     client = FakeClient(messages)
     generator = AnthropicCaptionGenerator(model="claude-haiku-4-5", client=client)
