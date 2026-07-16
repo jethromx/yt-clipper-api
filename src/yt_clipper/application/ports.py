@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
+from yt_clipper.domain.trends import TrendingVideo
 from yt_clipper.domain.video import (
     ClipRange,
     DownloadJob,
@@ -44,6 +45,10 @@ class VideoProvider(Protocol):
 
 class CaptionGenerator(Protocol):
     def generate(self, metadata: VideoMetadata, model: str | None = None) -> TikTokCaption: ...
+
+
+class TrendsProvider(Protocol):
+    def get_trending(self, region: str, max_results: int) -> list[TrendingVideo]: ...
 
 
 class MediaProcessor(Protocol):
