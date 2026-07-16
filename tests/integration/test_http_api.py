@@ -411,3 +411,41 @@ def test_delete_download_returns_204() -> None:
 
     assert response.status_code == 204
     assert len(use_case.deleted) == 1
+
+
+from yt_clipper.domain.exceptions import TrendsUnavailableError  # noqa: E402
+from yt_clipper.domain.trends import SearchSuggestion  # noqa: E402
+from yt_clipper.interfaces.http.dependencies import (  # noqa: E402
+    get_suggestions_use_case,
+)
+
+
+class FakeSuggestionsUseCase:
+    def execute(self, region: str, limit: int) -> list[SearchSuggestion]:
+        return [SearchSuggestion(text="#futbol", kind="hashtag")]
+
+
+class UnavailableSuggestionsUseCase:
+    def execute(self, region: str, limit: int) -> list[SearchSuggestion]:
+        raise TrendsUnavailableError("configura la key")
+
+
+def test_suggestions_returns_list() -> None:
+    app = create_app()
+    app.dependency_overrides[get_suggestions_use_case] = lambda: FakeSuggestionsUseCase()
+    client = TestClient(app)
+
+    response = client.get("/api/v1/suggestions", headers={"X-API-Key": "dev-secret-change-me"})
+
+    assert response.status_code == 200
+    assert response.json()["suggestions"][0]["text"] == "#futbol"
+
+
+def test_suggestions_unavailable_returns_503() -> None:
+    app = create_app()
+    app.dependency_overrides[get_suggestions_use_case] = lambda: UnavailableSuggestionsUseCase()
+    client = TestClient(app)
+
+    response = client.get("/api/v1/suggestions", headers={"X-API-Key": "dev-secret-change-me"})
+
+    assert response.status_code == 503

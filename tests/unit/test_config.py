@@ -28,3 +28,14 @@ def test_settings_expose_allowed_models() -> None:
     assert "claude-haiku-4-5" in settings.anthropic_allowed_models
     assert "claude-sonnet-5" in settings.anthropic_allowed_models
     assert "claude-opus-4-8" in settings.anthropic_allowed_models
+
+
+def test_settings_expose_trends_defaults(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from yt_clipper.config import Settings
+
+    monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    assert settings.youtube_api_key is None
+    assert settings.trends_region == "MX"
+    assert settings.trends_cache_ttl_seconds == 3600

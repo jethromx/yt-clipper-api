@@ -95,3 +95,12 @@ class GenerateCaptionRequest(BaseModel):
 class ModelsResponse(BaseModel):
     models: list[str]
     default: str
+
+
+class SuggestionResponse(BaseModel):
+    text: str
+    kind: str
+
+
+class SuggestionsResponse(BaseModel):
+    suggestions: list[SuggestionResponse]

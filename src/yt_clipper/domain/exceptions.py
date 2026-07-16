@@ -35,3 +35,11 @@ class EmptyBatchError(DomainError):
 
 class BatchTooLargeError(DomainError):
     """Raised when a batch download request exceeds the allowed size."""
+
+
+class TrendsUnavailableError(DomainError):
+    """Raised when no YouTube API key is configured for trends."""
+
+
+class TrendsError(DomainError):
+    """Raised when the YouTube trends API call fails."""

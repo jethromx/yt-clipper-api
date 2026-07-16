@@ -33,6 +33,9 @@ class Settings(BaseSettings):
             "claude-opus-4-8",
         ]
     )
+    youtube_api_key: str | None = None
+    trends_region: str = "MX"
+    trends_cache_ttl_seconds: int = 3600
 
     @field_validator("api_keys", "cors_origins", "anthropic_allowed_models", mode="before")
     @classmethod

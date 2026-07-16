@@ -4,13 +4,14 @@ from pathlib import Path
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from yt_clipper.application.ports import CaptionGenerator
+from yt_clipper.application.ports import CaptionGenerator, TrendsProvider
 from yt_clipper.application.use_cases import (
     CreateDownloadBatchUseCase,
     CreateDownloadUseCase,
     DeleteDownloadUseCase,
     GenerateTikTokCaptionUseCase,
     GetDownloadUseCase,
+    GetSearchSuggestionsUseCase,
     SearchVideosUseCase,
 )
 from yt_clipper.config import Settings, get_settings
@@ -22,6 +23,10 @@ from yt_clipper.infrastructure.persistence.database import get_session
 from yt_clipper.infrastructure.persistence.repositories import SqlAlchemyDownloadJobRepository
 from yt_clipper.infrastructure.queue.celery_queue import CeleryJobQueue
 from yt_clipper.infrastructure.storage.local import LocalFileStorage
+from yt_clipper.infrastructure.trends.youtube_trends import (
+    UnavailableTrendsProvider,
+    YouTubeTrendsProvider,
+)
 from yt_clipper.infrastructure.youtube.ytdlp_provider import YtDlpVideoProvider
 
 
@@ -107,3 +112,18 @@ def get_delete_download_use_case(
     storage: LocalFileStorage = Depends(get_file_storage),
 ) -> DeleteDownloadUseCase:
     return DeleteDownloadUseCase(repository, storage)
+
+
+def get_trends_provider(settings: Settings = Depends(get_settings)) -> TrendsProvider:
+    if not settings.youtube_api_key:
+        return UnavailableTrendsProvider()
+    return YouTubeTrendsProvider(
+        api_key=settings.youtube_api_key,
+        ttl_seconds=settings.trends_cache_ttl_seconds,
+    )
+
+
+def get_suggestions_use_case(
+    provider: TrendsProvider = Depends(get_trends_provider),
+) -> GetSearchSuggestionsUseCase:
+    return GetSearchSuggestionsUseCase(provider)
