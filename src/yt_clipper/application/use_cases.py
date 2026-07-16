@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,7 @@ from yt_clipper.application.ports import (
     FileStorage,
     JobQueue,
     MediaProcessor,
+    TrendsProvider,
     VideoProvider,
 )
 from yt_clipper.domain.exceptions import (
@@ -21,6 +23,7 @@ from yt_clipper.domain.exceptions import (
     EmptySearchQueryError,
     InvalidClipRangeError,
 )
+from yt_clipper.domain.trends import SearchSuggestion, TrendingVideo
 from yt_clipper.domain.video import (
     ClipRange,
     DownloadJob,
@@ -202,3 +205,43 @@ class DeleteDownloadUseCase:
             return
         self.storage.cleanup_download_path(job)
         self.repository.delete(job_id)
+
+
+MAX_SUGGESTIONS = 30
+TRENDING_FETCH_SIZE = 25
+MAX_TAG_LENGTH = 30
+_HASHTAG_RE = re.compile(r"#[\wÀ-ſ]+", re.UNICODE)
+
+
+class GetSearchSuggestionsUseCase:
+    def __init__(self, provider: TrendsProvider) -> None:
+        self.provider = provider
+
+    def execute(self, region: str, limit: int) -> list[SearchSuggestion]:
+        bounded = max(1, min(limit, MAX_SUGGESTIONS))
+        videos = self.provider.get_trending(region, TRENDING_FETCH_SIZE)
+        suggestions: list[SearchSuggestion] = []
+        seen: set[str] = set()
+        for video in videos:
+            for candidate in self._candidates(video):
+                key = candidate.text.lower()
+                if not candidate.text or key in seen:
+                    continue
+                seen.add(key)
+                suggestions.append(candidate)
+                if len(suggestions) >= bounded:
+                    return suggestions
+        return suggestions
+
+    @staticmethod
+    def _candidates(video: TrendingVideo) -> list[SearchSuggestion]:
+        result = [
+            SearchSuggestion(text=match, kind="hashtag")
+            for match in _HASHTAG_RE.findall(video.title)
+        ]
+        result.extend(
+            SearchSuggestion(text=tag, kind="topic")
+            for tag in video.tags
+            if tag and len(tag) <= MAX_TAG_LENGTH
+        )
+        return result
