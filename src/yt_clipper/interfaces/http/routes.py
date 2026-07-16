@@ -11,6 +11,7 @@ from yt_clipper.application.use_cases import (
     DeleteDownloadUseCase,
     GenerateTikTokCaptionUseCase,
     GetDownloadUseCase,
+    GetSearchSuggestionsUseCase,
     SearchVideosUseCase,
 )
 from yt_clipper.config import Settings, get_settings
@@ -19,6 +20,8 @@ from yt_clipper.domain.exceptions import (
     CaptionGeneratorUnavailableError,
     CaptionNotAvailableError,
     DomainError,
+    TrendsError,
+    TrendsUnavailableError,
 )
 from yt_clipper.domain.video import DownloadStatus
 from yt_clipper.interfaces.http.dependencies import (
@@ -29,6 +32,7 @@ from yt_clipper.interfaces.http.dependencies import (
     get_generate_caption_use_case,
     get_get_download_use_case,
     get_search_use_case,
+    get_suggestions_use_case,
     require_api_key,
 )
 from yt_clipper.interfaces.http.schemas import (
@@ -40,6 +44,8 @@ from yt_clipper.interfaces.http.schemas import (
     ModelsResponse,
     SearchResponse,
     SearchResultResponse,
+    SuggestionResponse,
+    SuggestionsResponse,
 )
 
 router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
@@ -82,6 +88,29 @@ def list_models(settings: Settings = Depends(get_settings)) -> ModelsResponse:
     return ModelsResponse(
         models=list(settings.anthropic_allowed_models),
         default=settings.anthropic_model,
+    )
+
+
+@router.get("/suggestions", response_model=SuggestionsResponse)
+def list_suggestions(
+    region: str | None = Query(default=None),
+    limit: int = Query(default=15, ge=1, le=30),
+    use_case: GetSearchSuggestionsUseCase = Depends(get_suggestions_use_case),
+    settings: Settings = Depends(get_settings),
+) -> SuggestionsResponse:
+    region_value = region or settings.trends_region
+    try:
+        suggestions = use_case.execute(region_value, limit)
+    except TrendsUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    except TrendsError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    except DomainError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return SuggestionsResponse(
+        suggestions=[SuggestionResponse(text=s.text, kind=s.kind) for s in suggestions]
     )
 
 
